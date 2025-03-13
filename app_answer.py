@@ -123,21 +123,11 @@ def display_chat_history():
 def respond_with_gemini(query, results, texts, top_n=3):
     """
     検索結果をコンテキストとして整形し、Geminiモデルで応答を生成する関数
-    会話履歴も考慮に入れて応答を生成する
-    Args:
-        query (str): ユーザーのクエリ。
-        results (list of tuple): 検索結果のリスト（インデックス, スコア）
-        texts (list of str): 検索対象のテキストのリスト
-        top_n (int, optional): 使用する検索結果の数（デフォルトは3）
     """
-    # 会話履歴を構築
     chat_history = "\n".join([f"{msg['role']}: {msg['content']}" for msg in st.session_state.messages])
-    
-    # 検索結果をコンテキストとして整形
     context = "\n\n".join([f"結果 {i+1}: {texts[idx]}" for i, (idx, score) in enumerate(results[:top_n])])
     prompt = f"会話履歴:\n{chat_history}\n\n以下のコンテキストを基にして質問に答えてください:\n{context}\n\n質問: {query}"
-
-    # Geminiモデルで応答を生成
+    
     model = get_gemini_model()
     response = model.generate_content(prompt)
     st.session_state.messages.append({"role": "assistant", "content": response.text})
@@ -145,29 +135,25 @@ def respond_with_gemini(query, results, texts, top_n=3):
 def main():
     st.title("RAG System")
 
-    # データの読み込み
     csv_file_path = "yahoo_news_articles_preprocessed.csv"
     df = load_data(csv_file_path)
     texts = df['text'].dropna().tolist()
 
-    # TF-IDFおよび埋め込みモデルの構築
     tfidf_matrix, tfidf_vectorizer = build_tfidf_model(texts)
     embeddings = build_embedding_model(texts)
 
-    # チャット履歴の初期化
     init_chat_history()
 
-    # ユーザー入力の処理
+    if st.button("質問をクリア"):
+        st.session_state.messages = []
+        st.rerun()
+
     user_input = st.chat_input("質問を入力してください")
     if user_input:
         st.session_state.messages.append({"role": "user", "content": user_input})
         with st.spinner("Gemini が入力しています ..."):
-            # ハイブリッド検索を実行
             results = hybrid_search(user_input, tfidf_matrix, tfidf_vectorizer, embeddings)
-            # Geminiに基づいて応答を生成
             respond_with_gemini(user_input, results, texts)
-        
-        # チャット履歴の表示
         display_chat_history()
 
 if __name__ == "__main__":
