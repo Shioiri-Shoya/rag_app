@@ -6,45 +6,54 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 from sentence_transformers import SentenceTransformer
 import google.generativeai as genai
+from dotenv import load_dotenv
 
-# Google APIキーが環境変数に設定されていない場合は、デフォルトのキーを設定
-if "GOOGLE_API_KEY" not in os.environ:
-    os.environ["GOOGLE_API_KEY"] = "AIzaSyBQz_CxKyyc-9g8n5HaWBHADl6HaYIg7F4"
+# .envファイルをロードして環境変数を設定
+load_dotenv()
 
-genai.configure(api_key=os.environ["GOOGLE_API_KEY"])
+# APIキーを環境変数から取得
+api_key = os.getenv("GOOGLE_API_KEY")
+if not api_key:
+    st.error("APIキーが設定されていません。Google CloudのAPIキーを設定してください。")
+    st.stop()
+
+genai.configure(api_key=api_key)
 
 @st.cache_resource
 def get_gemini_model():
     """
     Geminiモデルを取得する関数
-
     Returns:
         GenerativeModel: Geminiモデルインスタンス
     """
-    return genai.GenerativeModel('gemini-1.5-flash-latest')
+    try:
+        return genai.GenerativeModel('gemini-1.5-flash-latest')
+    except Exception as e:
+        st.error(f"Geminiモデルの取得中にエラーが発生しました: {e}")
+        st.stop()
 
 @st.cache_data
 def load_data(csv_file_path):
     """
     CSVファイルを読み込む関数
-    
     Args:
         csv_file_path (str): CSVファイルのパス
-
     Returns:
         pd.DataFrame: CSVファイルのデータを含むデータフレーム
     """
-    df = pd.read_csv(csv_file_path)
-    return df
+    try:
+        df = pd.read_csv(csv_file_path)
+        return df
+    except Exception as e:
+        st.error(f"データの読み込み中にエラーが発生しました: {e}")
+        st.stop()
 
 @st.cache_resource
 def build_tfidf_model(texts):
     """
     テキストデータに基づいてTF-IDFモデルを構築する関数
-    
     Args:
         texts (list of str): テキストのリスト
-
     Returns:
         tuple: TF-IDF行列とベクトライザ
     """
@@ -56,7 +65,6 @@ def build_tfidf_model(texts):
 def get_embedding_model():
     """
     SentenceTransformerモデルを取得する関数
-
     Returns:
         SentenceTransformer: モデルインスタンス
     """
@@ -66,10 +74,8 @@ def get_embedding_model():
 def build_embedding_model(texts):
     """
     テキストデータに基づいて埋め込みモデルを構築する関数
-    
     Args:
         texts (list of str): テキストのリスト
-
     Returns:
         np.ndarray: 埋め込みベクトルの配列
     """
@@ -80,13 +86,11 @@ def build_embedding_model(texts):
 def hybrid_search(query, tfidf_matrix, tfidf_vectorizer, embeddings):
     """
     クエリに基づいてハイブリッド検索を行う関数
-    
     Args:
         query (str): 検索クエリ
         tfidf_matrix (scipy.sparse matrix): TF-IDF行列
         tfidf_vectorizer (TfidfVectorizer): TF-IDFベクトライザ
         embeddings (np.ndarray): 埋め込みベクトルの配列
-
     Returns:
         list of tuple: 検索結果とスコアのリスト（インデックス, スコア）
     """
@@ -120,7 +124,6 @@ def respond_with_gemini(query, results, texts, top_n=3):
     """
     検索結果をコンテキストとして整形し、Geminiモデルで応答を生成する関数
     会話履歴も考慮に入れて応答を生成する
-    
     Args:
         query (str): ユーザーのクエリ。
         results (list of tuple): 検索結果のリスト（インデックス, スコア）

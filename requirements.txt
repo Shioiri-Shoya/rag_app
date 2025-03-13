@@ -1,6 +1,7 @@
-streamlit
 pandas
 numpy
+streamlit
 scikit-learn
 sentence-transformers
 google-generativeai
+python-dotenv
